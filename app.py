@@ -64,20 +64,20 @@ if prompt or (prompt := st.chat_input("Ask about any company (e.g., 'Tell me abo
             
             status_text.text("🤖 Analyzing with AI...")
             progress_bar.progress(80)
-            try:
-                response = st.session_state.research_engine.analyze_company(prompt, st.session_state.messages)
-                
-                progress_bar.progress(100)
-                status_text.text("✅ Analysis complete!")
-                
-                # Clear progress indicators
-                progress_bar.empty()
-                status_text.empty()
-                
-                st.markdown(response)
-                
-                # Add assistant response to chat history
-                st.session_state.messages.append({"role": "assistant", "content": response})
+            
+            response = st.session_state.research_engine.analyze_company(prompt, st.session_state.messages)
+            
+            progress_bar.progress(100)
+            status_text.text("✅ Analysis complete!")
+            
+            # Clear progress indicators
+            progress_bar.empty()
+            status_text.empty()
+            
+            st.markdown(response)
+            
+            # Add assistant response to chat history
+            st.session_state.messages.append({"role": "assistant", "content": response})
                 
         except Exception as e:
             error_message = f"**Research Error:** {str(e)}\n\n**Suggestions:**\n- Try using a well-known company name (e.g., 'Apple', 'Tesla')\n- Check spelling and use full company names\n- Ensure the company is publicly traded\n- Try rephrasing your question"

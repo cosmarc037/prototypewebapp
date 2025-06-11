@@ -1,75 +1,57 @@
 import os
 import sys
+from openai import OpenAI
 import yfinance as yf
 import pandas as pd
 from web_scraper import get_website_text_content
 import json
 import re
 from typing import List, Dict, Any
-import requests
-import time
-from functools import lru_cache
 
 class PEResearchEngine:
     def __init__(self):
-        # Using Hugging Face Inference API with GPT-NeoX-20B
-        self.hf_api_url = "https://api-inference.huggingface.co/models/EleutherAI/gpt-neox-20b"
-        self.hf_token = os.getenv("HUGGINGFACE_TOKEN")  # Optional, can work without it
+        # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        if not self.openai_api_key:
+            raise ValueError("OPENAI_API_KEY environment variable must be set")
         
-    def query_hf_model(self, prompt: str, max_tokens: int = 200) -> str:
-        """Query Hugging Face model with fallback to pattern matching"""
-        try:
-            headers = {}
-            if self.hf_token:
-                headers["Authorization"] = f"Bearer {self.hf_token}"
-            
-            payload = {
-                "inputs": prompt,
-                "parameters": {
-                    "max_new_tokens": max_tokens,
-                    "temperature": 0.7,
-                    "return_full_text": False
-                }
-            }
-            
-            response = requests.post(self.hf_api_url, headers=headers, json=payload, timeout=30)
-            if response.status_code == 200:
-                result = response.json()
-                if isinstance(result, list) and len(result) > 0:
-                    return result[0].get("generated_text", "").strip()
-            return ""
-        except Exception:
-            return ""
-
+        self.client = OpenAI(api_key=self.openai_api_key)
+        
     def extract_company_name(self, query: str) -> str:
-        """Extract company name from user query using AI or pattern matching"""
-        # Try AI extraction first
-        ai_prompt = f"Extract only the company name from this query: '{query}'\nCompany name:"
-        ai_result = self.query_hf_model(ai_prompt, max_tokens=20)
-        
-        if ai_result and len(ai_result) < 50:
-            return ai_result.strip()
-        
-        # Fallback: regex pattern extraction
-        company_patterns = [
-            r"(?:about|analyze|research)\s+([A-Za-z0-9\s&.-]+?)(?:\s+(?:company|corp|stock|shares|financials|competitors)|$|\?)",
-            r"([A-Za-z0-9\s&.-]+)'s\s+(?:competitors|financials|analysis|performance)",
-            r"(?:tell me about|what about|how about)\s+([A-Za-z0-9\s&.-]+?)(?:\s|$|\?)",
-            r"(?:PE|investment)\s+(?:in|opportunities?)\s+([A-Za-z0-9\s&.-]+?)(?:\s|$|\?)",
-            r"(?:ticker|stock)\s+([A-Z]{2,5})\b",
-        ]
-        
-        for pattern in company_patterns:
-            match = re.search(pattern, query, re.IGNORECASE)
-            if match:
-                company = match.group(1).strip()
-                # Clean up common words
-                company = re.sub(r'\b(company|corp|corporation|inc|ltd|llc)\b', '', company, flags=re.IGNORECASE).strip()
-                return company
-        
-        return "Unknown Company"
+        """Extract company name from user query using AI"""
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Extract the company name from the user query. Return only the company name, nothing else. If multiple companies are mentioned, return the primary one being asked about."
+                    },
+                    {"role": "user", "content": query}
+                ],
+                max_tokens=50
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            # Fallback: simple regex extraction
+            company_patterns = [
+                r"about\s+([A-Za-z0-9\s&.-]+?)(?:\s|$|\?)",
+                r"([A-Za-z0-9\s&.-]+)'s\s+",
+                r"analyze\s+([A-Za-z0-9\s&.-]+?)(?:\s|$|\?)",
+                r"tell me about\s+([A-Za-z0-9\s&.-]+?)(?:\s|$|\?)",
+                r"research\s+([A-Za-z0-9\s&.-]+?)(?:\s|$|\?)",
+            ]
+            
+            for pattern in company_patterns:
+                match = re.search(pattern, query, re.IGNORECASE)
+                if match:
+                    company = match.group(1).strip()
+                    # Clean up common words
+                    company = re.sub(r'\b(company|corp|corporation|inc|ltd|llc)\b', '', company, flags=re.IGNORECASE).strip()
+                    return company
+            
+            return "Unknown Company"
     
-    @lru_cache(maxsize=100)
     def get_financial_data(self, company_name: str) -> Dict[str, Any]:
         """Get basic financial data using yfinance"""
         try:
@@ -137,62 +119,25 @@ class PEResearchEngine:
             industry = company_data.get('industry', 'Unknown')
             company_name = company_data.get('company_name', 'Unknown')
             
-            prompt = f"""Analyze the competitive landscape for {company_name} in the {sector} sector, specifically in {industry}.
-
-Company: {company_name}
-Sector: {sector}
-Industry: {industry}
-
-Provide a comprehensive competitor analysis including:
-1. Direct competitors
-2. Market positioning
-3. Competitive advantages
-4. Market share considerations
-
-Analysis:"""
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a financial analyst specializing in competitive analysis. Provide a comprehensive competitor analysis including direct competitors, market positioning, and competitive advantages."
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Analyze the competitive landscape for {company_name} in the {sector} sector, specifically in {industry}. Include direct competitors, market share considerations, and competitive positioning."
+                    }
+                ],
+                max_tokens=800
+            )
             
-            ai_result = self.query_hf_model(prompt, max_tokens=600)
-            
-            if ai_result:
-                return ai_result
-            else:
-                # Fallback analysis based on sector/industry
-                return self.generate_basic_competitor_analysis(company_name, sector, industry)
+            return response.choices[0].message.content
             
         except Exception as e:
             return f"Could not generate competitor analysis: {str(e)}"
-    
-    def generate_basic_competitor_analysis(self, company_name: str, sector: str, industry: str) -> str:
-        """Generate basic competitor analysis without AI"""
-        competitors_db = {
-            'Technology': ['Apple', 'Microsoft', 'Google', 'Amazon', 'Meta'],
-            'Automotive': ['Tesla', 'Ford', 'General Motors', 'Toyota', 'Volkswagen'],
-            'Financial Services': ['JPMorgan Chase', 'Bank of America', 'Wells Fargo', 'Goldman Sachs'],
-            'Healthcare': ['Johnson & Johnson', 'Pfizer', 'UnitedHealth', 'Merck'],
-            'Consumer Discretionary': ['Amazon', 'Nike', 'Home Depot', 'McDonald\'s'],
-            'Energy': ['ExxonMobil', 'Chevron', 'ConocoPhillips', 'BP'],
-        }
-        
-        potential_competitors = competitors_db.get(sector, [])
-        competitors_text = ', '.join([c for c in potential_competitors if c.lower() != company_name.lower()][:5])
-        
-        return f"""**Competitive Analysis for {company_name}**
-
-**Sector:** {sector}
-**Industry:** {industry}
-
-**Key Competitors:** {competitors_text if competitors_text else 'Analysis requires additional research'}
-
-**Market Position:** {company_name} operates in the {sector} sector within the {industry} industry. Competitive positioning depends on market share, innovation capabilities, and operational efficiency.
-
-**Competitive Factors:**
-- Brand recognition and customer loyalty
-- Product/service differentiation
-- Pricing strategy and cost structure
-- Distribution channels and market reach
-- Technology and innovation capabilities
-
-*Note: Detailed competitive analysis requires current market data and industry reports.*"""
     
     def format_financial_data(self, data: Dict[str, Any]) -> str:
         """Format financial data for display"""
@@ -259,27 +204,30 @@ Analysis:"""
             Chat History: {json.dumps(chat_history[-5:], indent=2) if chat_history else 'None'}
             """
             
-            # Generate comprehensive analysis using AI
-            analysis_prompt = f"""As a Private Equity research analyst, provide comprehensive company analysis for investment considerations.
-
-{context}
-
-Structure your response with clear sections:
-- Company Overview
-- Financial Highlights  
-- Key Competitors
-- Investment Considerations (Strengths, Challenges, Opportunities)
-- PE Relevance
-
-Provide professional, detailed analysis focused on PE investment considerations. Use markdown formatting with clear headings and bullet points.
-
-Analysis:"""
+            # Generate comprehensive analysis
+            system_prompt = """You are a Private Equity research analyst providing comprehensive company analysis. 
+            Your responses should be professional, detailed, and focused on PE investment considerations.
             
-            ai_analysis = self.query_hf_model(analysis_prompt, max_tokens=1200)
+            Structure your response with clear sections:
+            - Company Overview
+            - Financial Highlights  
+            - Key Competitors
+            - Investment Considerations (Strengths, Challenges, Opportunities)
+            - PE Relevance
             
-            if not ai_analysis:
-                # Fallback to structured analysis without AI
-                ai_analysis = self.generate_structured_analysis(company_name, financial_data, competitor_analysis, web_content)
+            Use the provided data to give accurate, specific insights. If data is limited, acknowledge this clearly.
+            Format your response in markdown with clear headings and bullet points for readability."""
+            
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": context}
+                ],
+                max_tokens=1500
+            )
+            
+            ai_analysis = response.choices[0].message.content
             
             # Format the final response
             if 'error' not in financial_data:
@@ -314,44 +262,6 @@ I encountered an issue while researching {extracted_name}:
 - "Who are Microsoft's competitors?"
 
 Please try again with a different approach."""
-    
-    def generate_structured_analysis(self, company_name: str, financial_data: Dict[str, Any], competitor_analysis: str, web_content: str) -> str:
-        """Generate structured analysis without AI"""
-        formatted_financials = self.format_financial_data(financial_data)
-        
-        return f"""## Company Overview
-{company_name} is a company operating in the {financial_data.get('sector', 'various')} sector, specifically in the {financial_data.get('industry', 'multiple industries')} space.
-
-{formatted_financials}
-
-## Key Competitors
-{competitor_analysis}
-
-## Investment Considerations
-
-### Strengths
-- Established market presence in {financial_data.get('sector', 'their sector')}
-- {f"Market capitalization of ${financial_data.get('market_cap', 0)/1e9:.1f}B" if financial_data.get('market_cap') else "Significant market position"}
-- {f"Revenue of ${financial_data.get('revenue', 0)/1e9:.1f}B annually" if financial_data.get('revenue') else "Established revenue streams"}
-
-### Challenges
-- Competitive market environment
-- Industry-specific regulatory considerations
-- Market volatility and economic factors
-
-### Opportunities
-- Sector growth potential
-- Strategic expansion possibilities
-- Operational efficiency improvements
-
-## PE Relevance
-This analysis provides foundational data for Private Equity evaluation. Key considerations include:
-- Financial performance metrics
-- Market position and competitive landscape
-- Growth potential and scalability
-- Operational improvement opportunities
-
-*Note: This analysis is based on available public data. Detailed due diligence would require additional proprietary information and market research.*"""
 
     def get_chat_context(self, chat_history: List[Dict[str, str]]) -> str:
         """Extract relevant context from chat history"""
