@@ -7,6 +7,8 @@ import json
 import re
 from typing import List, Dict, Any
 import requests
+import time
+from functools import lru_cache
 
 class PEResearchEngine:
     def __init__(self):
@@ -50,11 +52,11 @@ class PEResearchEngine:
         
         # Fallback: regex pattern extraction
         company_patterns = [
-            r"about\s+([A-Za-z0-9\s&.-]+?)(?:\s|$|\?)",
-            r"([A-Za-z0-9\s&.-]+)'s\s+",
-            r"analyze\s+([A-Za-z0-9\s&.-]+?)(?:\s|$|\?)",
-            r"tell me about\s+([A-Za-z0-9\s&.-]+?)(?:\s|$|\?)",
-            r"research\s+([A-Za-z0-9\s&.-]+?)(?:\s|$|\?)",
+            r"(?:about|analyze|research)\s+([A-Za-z0-9\s&.-]+?)(?:\s+(?:company|corp|stock|shares|financials|competitors)|$|\?)",
+            r"([A-Za-z0-9\s&.-]+)'s\s+(?:competitors|financials|analysis|performance)",
+            r"(?:tell me about|what about|how about)\s+([A-Za-z0-9\s&.-]+?)(?:\s|$|\?)",
+            r"(?:PE|investment)\s+(?:in|opportunities?)\s+([A-Za-z0-9\s&.-]+?)(?:\s|$|\?)",
+            r"(?:ticker|stock)\s+([A-Z]{2,5})\b",
         ]
         
         for pattern in company_patterns:
@@ -67,6 +69,7 @@ class PEResearchEngine:
         
         return "Unknown Company"
     
+    @lru_cache(maxsize=100)
     def get_financial_data(self, company_name: str) -> Dict[str, Any]:
         """Get basic financial data using yfinance"""
         try:

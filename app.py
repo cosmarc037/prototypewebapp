@@ -30,8 +30,15 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
+# Handle example queries
+if "example_query" in st.session_state:
+    prompt = st.session_state.example_query
+    del st.session_state.example_query
+else:
+    prompt = None
+
 # Chat input
-if prompt := st.chat_input("Ask about any company (e.g., 'Tell me about Tesla' or 'Who are Apple's competitors?')"):
+if prompt or (prompt := st.chat_input("Ask about any company (e.g., 'Tell me about Tesla' or 'Who are Apple's competitors?')")):
     # Add user message to chat history
     st.session_state.messages.append({"role": "user", "content": prompt})
     
@@ -41,18 +48,60 @@ if prompt := st.chat_input("Ask about any company (e.g., 'Tell me about Tesla' o
     
     # Generate and display assistant response
     with st.chat_message("assistant"):
-        with st.spinner("Researching company information..."):
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        try:
+            status_text.text("🔍 Extracting company name...")
+            progress_bar.progress(20)
+            
+            status_text.text("📊 Gathering financial data...")
+            progress_bar.progress(40)
+            
+            status_text.text("🌐 Collecting market intelligence...")
+            progress_bar.progress(60)
+            
+            status_text.text("🤖 Analyzing with AI...")
+            progress_bar.progress(80)
             try:
                 response = st.session_state.research_engine.analyze_company(prompt, st.session_state.messages)
+                
+                progress_bar.progress(100)
+                status_text.text("✅ Analysis complete!")
+                
+                # Clear progress indicators
+                progress_bar.empty()
+                status_text.empty()
+                
                 st.markdown(response)
                 
                 # Add assistant response to chat history
                 st.session_state.messages.append({"role": "assistant", "content": response})
                 
             except Exception as e:
-                error_message = f"**Error:** {str(e)}\n\nPlease try again or rephrase your question."
+                error_message = f"**Research Error:** {str(e)}\n\n**Suggestions:**\n- Try using a well-known company name (e.g., 'Apple', 'Tesla')\n- Check spelling and use full company names\n- Ensure the company is publicly traded\n- Try rephrasing your question"
                 st.error(error_message)
                 st.session_state.messages.append({"role": "assistant", "content": error_message})
+
+
+# Export functionality
+    st.header("📥 Export")
+    if st.session_state.messages:
+        # Prepare export data
+        export_data = []
+        for msg in st.session_state.messages:
+            if msg["role"] == "assistant":
+                export_data.append(f"**Analysis:**\n{msg['content']}\n\n---\n\n")
+        
+        if export_data:
+            export_text = "".join(export_data)
+            st.download_button(
+                label="Download Research Report",
+                data=export_text,
+                file_name=f"pe_research_report_{int(time.time())}.md",
+                mime="text/markdown"
+            )
+
 
 # Sidebar with instructions and controls
 with st.sidebar:
@@ -72,6 +121,21 @@ with st.sidebar:
     - Market opportunity assessment
     - PE-focused insights
     """)
+    
+    st.header("🚀 Quick Examples")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("📊 Analyze Apple", key="apple_btn"):
+            st.session_state.example_query = "Tell me about Apple"
+        if st.button("🚗 Tesla Analysis", key="tesla_btn"):
+            st.session_state.example_query = "Analyze Tesla's market position"
+    
+    with col2:
+        if st.button("💻 Microsoft Research", key="msft_btn"):
+            st.session_state.example_query = "Research Microsoft"
+        if st.button("🏪 Amazon Overview", key="amzn_btn"):
+            st.session_state.example_query = "Tell me about Amazon"
     
     st.header("🔧 Controls")
     if st.button("Clear Chat History"):
