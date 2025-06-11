@@ -86,21 +86,21 @@ if prompt or (prompt := st.chat_input("Ask about any company (e.g., 'Tell me abo
 
 # Export functionality
 st.header("📥 Export")
-    if st.session_state.messages:
+if st.session_state.messages:
         # Prepare export data
-        export_data = []
-        for msg in st.session_state.messages:
-            if msg["role"] == "assistant":
-                export_data.append(f"**Analysis:**\n{msg['content']}\n\n---\n\n")
-        
-        if export_data:
-            export_text = "".join(export_data)
-            st.download_button(
-                label="Download Research Report",
-                data=export_text,
-                file_name=f"pe_research_report_{int(time.time())}.md",
-                mime="text/markdown"
-            )
+    export_data = []
+    for msg in st.session_state.messages:
+        if msg["role"] == "assistant":
+            export_data.append(f"**Analysis:**\n{msg['content']}\n\n---\n\n")
+    
+    if export_data:
+        export_text = "".join(export_data)
+        st.download_button(
+            label="Download Research Report",
+            data=export_text,
+            file_name=f"pe_research_report_{int(time.time())}.md",
+            mime="text/markdown"
+        )
 
 
 # Sidebar with instructions and controls
