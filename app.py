@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import time
 from research_engine import PEResearchEngine
 
 # Page configuration
@@ -78,14 +79,13 @@ if prompt or (prompt := st.chat_input("Ask about any company (e.g., 'Tell me abo
                 # Add assistant response to chat history
                 st.session_state.messages.append({"role": "assistant", "content": response})
                 
-            except Exception as e:
-                error_message = f"**Research Error:** {str(e)}\n\n**Suggestions:**\n- Try using a well-known company name (e.g., 'Apple', 'Tesla')\n- Check spelling and use full company names\n- Ensure the company is publicly traded\n- Try rephrasing your question"
-                st.error(error_message)
-                st.session_state.messages.append({"role": "assistant", "content": error_message})
-
+        except Exception as e:
+            error_message = f"**Research Error:** {str(e)}\n\n**Suggestions:**\n- Try using a well-known company name (e.g., 'Apple', 'Tesla')\n- Check spelling and use full company names\n- Ensure the company is publicly traded\n- Try rephrasing your question"
+            st.error(error_message)
+            st.session_state.messages.append({"role": "assistant", "content": error_message})
 
 # Export functionality
-    st.header("📥 Export")
+st.header("📥 Export")
     if st.session_state.messages:
         # Prepare export data
         export_data = []
