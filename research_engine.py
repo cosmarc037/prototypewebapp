@@ -70,22 +70,14 @@ class PEResearchEngine:
     def get_financial_data(self, company_name: str) -> Dict[str, Any]:
         """Get basic financial data using yfinance"""
         try:
-            # Try to find ticker symbol
-            try:
-                ticker_search = yf.search(company_name)
-            except:
-                ticker_search = None
-            if not ticker_search.empty:
-                ticker = ticker_search.iloc[0]['symbol']
-            else:
-                # Common ticker mappings
-                ticker_map = {
-                    'apple': 'AAPL', 'microsoft': 'MSFT', 'google': 'GOOGL',
-                    'amazon': 'AMZN', 'tesla': 'TSLA', 'meta': 'META',
-                    'netflix': 'NFLX', 'nvidia': 'NVDA', 'facebook': 'META',
-                    'alphabet': 'GOOGL', 'ford': 'F', 'general motors': 'GM'
-                }
-                ticker = ticker_map.get(company_name.lower(), company_name.upper())
+            # Common ticker mappings
+            ticker_map = {
+                'apple': 'AAPL', 'microsoft': 'MSFT', 'google': 'GOOGL',
+                'amazon': 'AMZN', 'tesla': 'TSLA', 'meta': 'META',
+                'netflix': 'NFLX', 'nvidia': 'NVDA', 'facebook': 'META',
+                'alphabet': 'GOOGL', 'ford': 'F', 'general motors': 'GM'
+            }
+            ticker = ticker_map.get(company_name.lower(), company_name.upper())
             
             stock = yf.Ticker(ticker)
             info = stock.info
