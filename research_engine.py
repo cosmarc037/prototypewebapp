@@ -31,7 +31,8 @@ class PEResearchEngine:
                 ],
                 max_tokens=50
             )
-            return response.choices[0].message.content.strip()
+            result = response.choices[0].message.content
+            return result.strip() if result else "Unknown Company"
         except Exception as e:
             # Fallback: simple regex extraction
             company_patterns = [
@@ -134,7 +135,8 @@ class PEResearchEngine:
                 max_tokens=800
             )
             
-            return response.choices[0].message.content
+            result = response.choices[0].message.content
+            return result or "Could not generate competitor analysis"
             
         except Exception as e:
             return f"Could not generate competitor analysis: {str(e)}"
@@ -227,7 +229,7 @@ class PEResearchEngine:
                 max_tokens=1500
             )
             
-            ai_analysis = response.choices[0].message.content
+            ai_analysis = response.choices[0].message.content or "Analysis unavailable"
             
             # Format the final response
             if 'error' not in financial_data:

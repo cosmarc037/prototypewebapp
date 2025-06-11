@@ -1,14 +1,64 @@
 import streamlit as st
 import os
-import time
 from research_engine import PEResearchEngine
 
 # Page configuration
 st.set_page_config(
-    page_title="PE Research Chatbot",
+    page_title="PE Research AI",
     page_icon="🏢",
-    layout="wide"
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
+
+# Hide Streamlit elements for clean interface
+hide_streamlit_style = """
+<style>
+    #root > div:nth-child(1) > div > div > div > div > section > div {padding-top: 1rem;}
+    .stDeployButton {display:none;}
+    footer {visibility: hidden;}
+    #stDecoration {display:none;}
+    header {visibility: hidden;}
+    .css-18e3th9 {padding-top: 0rem;}
+    .css-1d391kg {padding-top: 1rem;}
+    .element-container iframe {
+        background-color: transparent;
+    }
+    .stChatMessage {
+        background-color: transparent;
+    }
+    div[data-testid="stToolbar"] {
+        visibility: hidden;
+        height: 0%;
+        position: fixed;
+    }
+    div[data-testid="stDecoration"] {
+        visibility: hidden;
+        height: 0%;
+        position: fixed;
+    }
+    div[data-testid="stStatusWidget"] {
+        visibility: hidden;
+        height: 0%;
+        position: fixed;
+    }
+    #MainMenu {
+        visibility: hidden;
+        height: 0%;
+    }
+    header {
+        visibility: hidden;
+        height: 0%;
+    }
+    footer {
+        visibility: hidden;
+        height: 0%;
+    }
+    .css-15zrgzn {display: none}
+    .css-eczf16 {display: none}
+    .css-jn99sy {display: none}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Initialize the research engine
 @st.cache_resource
@@ -22,24 +72,60 @@ if "messages" not in st.session_state:
 if "research_engine" not in st.session_state:
     st.session_state.research_engine = get_research_engine()
 
-# App title and description
-st.title("🏢 Private Equity Research Chatbot")
-st.markdown("**Professional AI-powered company analysis for Private Equity research**")
+# Welcome section - only show if no messages exist
+if not st.session_state.messages:
+    st.markdown("""
+    <div style="text-align: center; padding: 2rem 0;">
+        <h1 style="color: #FD5108; font-size: 2.5rem; font-weight: 600; margin-bottom: 0.5rem;">
+            🏢 PE Research AI
+        </h1>
+        <p style="color: #64748b; font-size: 1.2rem; margin-bottom: 2rem;">
+            Professional AI-powered company analysis for Private Equity research
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Example prompts
+    st.markdown("### Try asking about:")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("📊 Tell me about Tesla", use_container_width=True):
+            st.session_state.messages.append({"role": "user", "content": "Tell me about Tesla"})
+            st.rerun()
+            
+        if st.button("🏭 Analyze Apple's market position", use_container_width=True):
+            st.session_state.messages.append({"role": "user", "content": "Analyze Apple's market position"})
+            st.rerun()
+    
+    with col2:
+        if st.button("🔍 Who are Microsoft's competitors?", use_container_width=True):
+            st.session_state.messages.append({"role": "user", "content": "Who are Microsoft's competitors?"})
+            st.rerun()
+            
+        if st.button("💰 PE opportunities in Netflix", use_container_width=True):
+            st.session_state.messages.append({"role": "user", "content": "What are the PE opportunities in Netflix?"})
+            st.rerun()
+
+# Chat interface
+else:
+    # App title for chat mode
+    st.markdown("""
+    <div style="text-align: center; padding: 1rem 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 1rem;">
+        <h2 style="color: #FD5108; font-size: 1.5rem; font-weight: 600; margin: 0;">
+            🏢 PE Research AI
+        </h2>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Display chat messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Handle example queries
-if "example_query" in st.session_state:
-    prompt = st.session_state.example_query
-    del st.session_state.example_query
-else:
-    prompt = None
-
 # Chat input
-if prompt or (prompt := st.chat_input("Ask about any company (e.g., 'Tell me about Tesla' or 'Who are Apple's competitors?')")):
+if prompt := st.chat_input("Ask about any company for PE research analysis..."):
     # Add user message to chat history
     st.session_state.messages.append({"role": "user", "content": prompt})
     
@@ -49,112 +135,24 @@ if prompt or (prompt := st.chat_input("Ask about any company (e.g., 'Tell me abo
     
     # Generate and display assistant response
     with st.chat_message("assistant"):
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        try:
-            status_text.text("🔍 Extracting company name...")
-            progress_bar.progress(20)
-            
-            status_text.text("📊 Gathering financial data...")
-            progress_bar.progress(40)
-            
-            status_text.text("🌐 Collecting market intelligence...")
-            progress_bar.progress(60)
-            
-            status_text.text("🤖 Analyzing with AI...")
-            progress_bar.progress(80)
-            
-            response = st.session_state.research_engine.analyze_company(prompt, st.session_state.messages)
-            
-            progress_bar.progress(100)
-            status_text.text("✅ Analysis complete!")
-            
-            # Clear progress indicators
-            progress_bar.empty()
-            status_text.empty()
-            
-            st.markdown(response)
-            
-            # Add assistant response to chat history
-            st.session_state.messages.append({"role": "assistant", "content": response})
+        with st.spinner("Analyzing company data..."):
+            try:
+                response = st.session_state.research_engine.analyze_company(prompt, st.session_state.messages)
+                st.markdown(response)
                 
-        except Exception as e:
-            error_message = f"**Research Error:** {str(e)}\n\n**Suggestions:**\n- Try using a well-known company name (e.g., 'Apple', 'Tesla')\n- Check spelling and use full company names\n- Ensure the company is publicly traded\n- Try rephrasing your question"
-            st.error(error_message)
-            st.session_state.messages.append({"role": "assistant", "content": error_message})
+                # Add assistant response to chat history
+                st.session_state.messages.append({"role": "assistant", "content": response})
+                
+            except Exception as e:
+                error_message = f"**Research Error:** {str(e)}\n\nPlease try again with a different company name or rephrase your question."
+                st.error(error_message)
+                st.session_state.messages.append({"role": "assistant", "content": error_message})
 
-# Export functionality
-st.header("📥 Export")
+# Clear chat button (only show when there are messages)
 if st.session_state.messages:
-        # Prepare export data
-    export_data = []
-    for msg in st.session_state.messages:
-        if msg["role"] == "assistant":
-            export_data.append(f"**Analysis:**\n{msg['content']}\n\n---\n\n")
-    
-    if export_data:
-        export_text = "".join(export_data)
-        st.download_button(
-            label="Download Research Report",
-            data=export_text,
-            file_name=f"pe_research_report_{int(time.time())}.md",
-            mime="text/markdown"
-        )
-
-
-# Sidebar with instructions and controls
-with st.sidebar:
-    st.header("💡 How to Use")
-    st.markdown("""
-    **Ask questions like:**
-    - "Tell me about [Company Name]"
-    - "Who are Tesla's competitors?"
-    - "What are Apple's financial highlights?"
-    - "Analyze Microsoft's market position"
-    - "PE opportunities in the EV sector"
-    
-    **Features:**
-    - Real-time company research
-    - Financial data analysis
-    - Competitor identification
-    - Market opportunity assessment
-    - PE-focused insights
-    """)
-    
-    st.header("🚀 Quick Examples")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("📊 Analyze Apple", key="apple_btn"):
-            st.session_state.example_query = "Tell me about Apple"
-        if st.button("🚗 Tesla Analysis", key="tesla_btn"):
-            st.session_state.example_query = "Analyze Tesla's market position"
-    
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        if st.button("💻 Microsoft Research", key="msft_btn"):
-            st.session_state.example_query = "Research Microsoft"
-        if st.button("🏪 Amazon Overview", key="amzn_btn"):
-            st.session_state.example_query = "Tell me about Amazon"
-    
-    st.header("🔧 Controls")
-    if st.button("Clear Chat History"):
-        st.session_state.messages = []
-        st.rerun()
-    
-    st.header("ℹ️ About")
-    st.markdown("""
-    This chatbot provides comprehensive company analysis 
-    for Private Equity research using real-time data 
-    from multiple sources.
-    
-    **Data Sources:**
-    - Financial APIs
-    - Web scraping
-    - Market databases
-    - AI analysis
-    """)
-
-# Footer
-st.markdown("---")
-st.markdown("*Private Equity Research Chatbot - Professional company analysis at your fingertips*")
+        if st.button("🔄 Start New Chat", use_container_width=True):
+            st.session_state.messages = []
+            st.rerun()
