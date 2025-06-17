@@ -9,13 +9,13 @@ import re
 from typing import List, Dict, Any
 
 class PEResearchEngine:
-    def __init__(self):
+    #def __init__(self):
         # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        if not self.openai_api_key:
-            raise ValueError("OPENAI_API_KEY environment variable must be set")
+    #    self.openai_api_key = os.getenv("OPENAI_API_KEY")
+    #    if not self.openai_api_key:
+    #        raise ValueError("OPENAI_API_KEY environment variable must be set")
         
-        self.client = OpenAI(api_key=self.openai_api_key)
+    #    self.client = OpenAI(api_key=self.openai_api_key)
         
     def extract_company_name(self, query: str) -> str:
         """Extract company name from user query using AI"""
